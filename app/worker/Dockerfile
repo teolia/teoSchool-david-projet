@@ -1,7 +1,7 @@
 FROM python:3.8-alpine
-ENV PYBASE=/pybase \
-    PYTHONUSERBASE=$PYBASE \
-    PATH=$PYBASE/bin:$PATH 
+ENV PYBASE=/pybase
+ENV PYTHONUSERBASE=$PYBASE
+ENV PATH=$PYBASE/bin:$PATH 
 
 RUN pip install pipenv
 
