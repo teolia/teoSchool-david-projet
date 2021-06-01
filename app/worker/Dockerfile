@@ -10,7 +10,7 @@ COPY Pipfile .
 RUN pipenv lock && \
     PIP_USER=1 \
     PIP_IGNORE_INSTALLED=1 \
-    pipenv install
+    pipenv install  -d --system --ignore-pipfile
 
 COPY . /app/worker/
 WORKDIR /app/worker/
