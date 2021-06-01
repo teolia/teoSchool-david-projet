@@ -1,4 +1,4 @@
-FROM ruby:alpine
+FROM ruby:2.7.3-slim
 
 # throw errors if Gemfile has been modified since Gemfile.lock
 RUN bundle config --global frozen 1
@@ -10,4 +10,6 @@ RUN bundle install
 
 COPY . .
 
-CMD ["./hasher.rb"]
+EXPOSE 80
+
+CMD ["ruby","hasher.rb"]
