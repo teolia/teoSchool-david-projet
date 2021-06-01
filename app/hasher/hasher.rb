@@ -9,7 +9,7 @@ post '/' do
     # Simulate a bit of delay
     sleep 0.1
     content_type 'text/plain'
-    "#{Difest::SHA2.new().update(request.body.read)}"
+    "#{Digest::SHA2.new().update(request.body.read)}"
 end
 
 get '/' do
