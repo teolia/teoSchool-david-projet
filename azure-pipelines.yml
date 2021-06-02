@@ -4,7 +4,7 @@ pool:
 stages:
 - stage: BuildApps
   jobs:
-  - job: BuildGradleProject
+  - job: BuildWebuiApp
     steps:
     - task: Gradle@2
       inputs:
@@ -17,6 +17,25 @@ stages:
         gradleOptions: '-Xmx3072m'
         sonarQubeRunAnalysis: false
         spotBugsAnalysis: false
-    - task: CmdLine@2
-      inputs:
-        script: ls -alh dist/
+
+  - job: BuildWorkerApp
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.8'
+          addToPath: true
+          architecture: 'x64'
+      - task: PythonScript@0
+        inputs:
+          scriptSource: 'inline'
+          script: |
+            pip install pipenv
+            pipenv --python 3.8
+            pipenv lock && \
+              PIP_USER=1 \
+              PIP_IGNORE_INSTALLED=1 \
+              PIPENV_VENV_IN_PROJECT=1 \
+              pipenv install -d
+          workingDirectory: 'app/worker/'
+
+    
