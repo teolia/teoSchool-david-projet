@@ -1,0 +1,25 @@
+version: '3'
+services: 
+    hasher:
+        build:
+            dockerfile: Dockerfile
+            context: ./hasher
+    redis:
+        image: 'redis:alpine'
+    rng:
+        build:
+            dockerfile: Dockerfile.dev
+            context: ./rng
+    webui:
+        build:
+            dockerfile: Dockerfile.dev
+            context: ./webui
+        volumes:
+            - /usr/src/app/node_modules
+            - ./webui:/usr/src/app
+        ports:
+            - '3000:80'
+    worker:
+        build:
+            dockerfile: Dockerfile
+            context: ./worker
