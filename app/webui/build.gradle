@@ -1,0 +1,25 @@
+plugins {
+  //inlude the nodeJS plugin to execute nodejs and npm tasks
+  //id "com.moowork.node" version "1.2.0"
+  id("com.github.node-gradle.node") version "3.1.0"
+
+}
+
+node {
+	download = true
+}
+
+//declare a build task
+task build
+
+task sayHello {
+	  doLast {
+	     println 'Hello, world!'
+	  }
+	}
+
+//declare task dependencies
+build.dependsOn npm_build
+npm_build.dependsOn npm_test
+npm_test.dependsOn npmInstall
+npm_build.dependsOn npmInstall
