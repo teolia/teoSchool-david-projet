@@ -7,6 +7,8 @@ name = "pypi"
 flask = "*"
 gunicorn = "==20.1.0"
 pytest = "*"
+pytest-cov = "*"
+pytest-xdist = "*"
 
 [dev-packages]
 

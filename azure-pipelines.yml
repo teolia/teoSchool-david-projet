@@ -20,19 +20,31 @@ stages:
     - task: CmdLine@2
       inputs:
           script: |
-            gem install bundler
-            bundle install
+            echo 'gem install bundler'
+            echo 'bundle install'
           workingDirectory: 'app/hasher/'
 
   - job: BuildRngApp
     displayName: Building Rng Application
     steps:
+      - task: SonarCloudPrepare@1
+        displayName: Preparing SonarCloud rng analysis
+        inputs:
+          SonarCloud: 'sonar-cloud'
+          organization: 'pasdethunes'
+          scannerMode: 'CLI'
+          configMode: 'manual'
+          cliProjectKey: 'pasdethunes_teoschool-david-projet'
+          cliProjectName: 'teoschool-david-projet'
+          cliSources: '.'
+          extraProperties: 'sonar.python.coverage.reportPath=$(System.DefaultWorkingDirectory)/app/rng/coverage.xml'
       - task: UsePythonVersion@0
         inputs:
           versionSpec: '3.8'
           addToPath: true
           architecture: 'x64'
       - task: CmdLine@2
+        displayName: Building rng Python environment
         inputs:
           script: |
             python -m pip install --upgrade pip
@@ -41,21 +53,38 @@ stages:
             pipenv lock && \
             PIP_USER=1 \
             PIP_IGNORE_INSTALLED=1 \
-            PIPENV_VENV_IN_PROJECT=1 \
-            pipenv install -d
+            pipenv install --deploy --ignore-pipfile
           workingDirectory: 'app/rng/'
-      - task: ArchiveFiles@2
+      - task: CmdLine@2
+        displayName: Testing rng Python application
         inputs:
-          rootFolderOrFile: 'app/rng/'
-          includeRootFolder: false
-          archiveType: 'zip'
-          archiveFile: 'rng_app_$(Build.BuildId).zip'
-          replaceExistingArchive: true
-      - task: PublishPipelineArtifact@1
+          script: |
+            pipenv run pytest --junitxml=$(Build.StagingDirectory)/rng_results_$(Build.BuildId).xml --cov=rng --cov-report=xml --cov-report=html
+            ls -alh $(System.DefaultWorkingDirectory)
+            ls -alh $(System.DefaultWorkingDirectory)/app/rng
+          workingDirectory: 'app/rng/'
+      - task: PublishTestResults@2
+        displayName: Publishing rng Python test results
         inputs:
-          targetPath: '$(Pipeline.Workspace)'
-          artifact: 'rng_app_$(Build.BuildId).zip'
-          publishLocation: 'pipeline'
+          testResultsFormat: 'JUnit'
+          testResultsFiles: 'rng_results_$(Build.BuildId).xml'
+          searchFolder: '$(Build.StagingDirectory)'
+          testRunTitle: 'rng_results_$(Build.BuildId)'
+      - task: PublishCodeCoverageResults@1
+        displayName: Publish rng code coverage results
+        inputs:
+          codeCoverageTool: 'Cobertura'
+          summaryFileLocation: '$(System.DefaultWorkingDirectory)/app/rng/coverage.xml'
+          pathToSources: '$(System.DefaultWorkingDirectory)/app/rng/'
+          reportDirectory: '$(System.DefaultWorkingDirectory)/app/rng/htmlcov'
+          additionalCodeCoverageFiles: '$(System.DefaultWorkingDirectory)/app/rng/htmlcov/**'
+      - task: DeleteFiles@1
+        displayName: Deleting rng htmlcov folder
+        inputs:
+          SourceFolder: '$(System.DefaultWorkingDirectory)/app/rng/htmlcov/'
+          Contents: '**'
+      - task: SonarCloudAnalyze@1
+        displayName: Running SonarCloud rng analysis
 
   - job: BuildWebuiApp
     displayName: Building WebUI Application
@@ -90,23 +119,5 @@ stages:
             PIP_USER=1 \
             PIP_IGNORE_INSTALLED=1 \
             PIPENV_VENV_IN_PROJECT=1 \
-            pipenv install -d
+            pipenv install -d --system --ignore-pipfile
           workingDirectory: 'app/worker/'
-
-
-- stage: TestApps
-  jobs:
-  - job: TestRngApp
-    displayName: Testing Rng Application
-    steps:
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        buildType: 'current'
-        artifactName: 'rng_app_$(Build.BuildId).zip'
-        targetPath: '$(Pipeline.Workspace)/app/rng'
-    - task: CmdLine@2
-      inputs:
-        script: |
-          export PATH=".venv/bin:$PATH"
-          pytest --junitxml=$(Build.StagingDirectory)/rng_results_$(Build.BuildId).xml
-        workingDirectory: 'app/rng/'
