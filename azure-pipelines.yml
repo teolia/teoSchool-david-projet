@@ -54,8 +54,7 @@ stages:
         jdkVersionOption: '1.8'
         gradleOptions: '-Xmx3072m'
         sonarQubeRunAnalysis: true
-        sqGradlePluginVersionChoice: 'specify'
-        sonarQubeGradlePluginVersion: '2.6.1'
+        sqGradlePluginVersionChoice: 'build'
         spotBugsAnalysis: false
 
   - job: BuildWorkerApp
