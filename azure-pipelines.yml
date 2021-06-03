@@ -21,7 +21,7 @@ stages:
       inputs:
           script: |
             gem install bundler
-            bundle install --retry=3 --jobs=4
+            bundle install
           workingDirectory: 'app/hasher/'
 
   - job: BuildRngApp
@@ -49,7 +49,7 @@ stages:
           rootFolderOrFile: '/app/rng'
           includeRootFolder: true
           archiveType: 'zip'
-          archiveFile: '$(Build.ArtifactStagingDirectory)/rng_app_$(Build.BuildId).zip'
+          archiveFile: 'rng_app_$(Build.BuildId).zip'
           replaceExistingArchive: true
       - task: PublishPipelineArtifact@1
         inputs:
