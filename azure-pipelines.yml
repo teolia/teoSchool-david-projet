@@ -1,5 +1,9 @@
 trigger:
+- master
 - develop
+- feature/*
+- hotfix/*
+- release/*
 
 pool:
   vmImage: ubuntu-latest
@@ -17,7 +21,7 @@ stages:
       inputs:
           script: |
             gem install bundler
-            bundle install --retry=3 --jobs=4
+            bundle install
           workingDirectory: 'app/hasher/'
 
   - job: BuildRngApp
@@ -40,6 +44,18 @@ stages:
             PIPENV_VENV_IN_PROJECT=1 \
             pipenv install -d
           workingDirectory: 'app/rng/'
+      - task: ArchiveFiles@2
+        inputs:
+          rootFolderOrFile: 'app/rng/'
+          includeRootFolder: true
+          archiveType: 'zip'
+          archiveFile: 'rng_app_$(Build.BuildId).zip'
+          replaceExistingArchive: true
+      - task: PublishPipelineArtifact@1
+        inputs:
+          targetPath: '$(Pipeline.Workspace)'
+          artifact: 'rng_app_$(Build.BuildId).zip'
+          publishLocation: 'pipeline'
 
   - job: BuildWebuiApp
     displayName: Building WebUI Application
@@ -53,9 +69,7 @@ stages:
         javaHomeOption: 'JDKVersion'
         jdkVersionOption: '1.8'
         gradleOptions: '-Xmx3072m'
-        sonarQubeRunAnalysis: true
-        sqGradlePluginVersionChoice: 'specify'
-        sonarQubeGradlePluginVersion: '2.6.1'
+        sonarQubeRunAnalysis: false
         spotBugsAnalysis: false
 
   - job: BuildWorkerApp
@@ -78,3 +92,21 @@ stages:
             PIPENV_VENV_IN_PROJECT=1 \
             pipenv install -d
           workingDirectory: 'app/worker/'
+
+
+- stage: TestApps
+  jobs:
+  - job: TestRngApp
+    displayName: Testing Rng Application
+    steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'current'
+        artifactName: 'rng_app_$(Build.BuildId).zip'
+        targetPath: '$(Pipeline.Workspace)/app/rng'
+    - task: CmdLine@2
+      inputs:
+        script: |
+          export PATH=".venv/bin:$PATH"
+          pytest --junitxml=$(Build.StagingDirectory)/rng_results_$(Build.BuildId).xml
+        workingDirectory: 'app/rng/'
