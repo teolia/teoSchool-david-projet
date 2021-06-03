@@ -5,18 +5,6 @@ pool:
   vmImage: ubuntu-latest
 
 stages:
-- stage: PreBuild
-  jobs:
-  - job: SonarCloudPreparation
-    steps:
-    - task: SonarCloudPrepare@1
-      inputs:
-        SonarCloud: 'sonar-cloud'
-        organization: 'pasdethunes'
-        scannerMode: 'CLI'
-        configMode: 'manual'
-        cliProjectKey: 'pasdethunes_teoschool-david-projet'
-        cliSources: '.'
 - stage: BuildApps
   jobs:
   - job: BuildHasherApp
@@ -65,7 +53,9 @@ stages:
         javaHomeOption: 'JDKVersion'
         jdkVersionOption: '1.8'
         gradleOptions: '-Xmx3072m'
-        sonarQubeRunAnalysis: false
+        sonarQubeRunAnalysis: true
+        sqGradlePluginVersionChoice: 'specify'
+        sonarQubeGradlePluginVersion: '2.6.1'
         spotBugsAnalysis: false
 
   - job: BuildWorkerApp
@@ -88,9 +78,3 @@ stages:
             PIPENV_VENV_IN_PROJECT=1 \
             pipenv install -d
           workingDirectory: 'app/worker/'
-
-- stage: AnalyzeCodeSource
-  jobs:
-  - job: SonarCloudAnalysis
-    steps:
-    - task: SonarCloudAnalyze@1
