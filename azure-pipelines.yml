@@ -18,8 +18,28 @@ stages:
           script: |
             gem install bundler
             bundle install --retry=3 --jobs=4
-            bundle exec rake
           workingDirectory: 'app/hasher/'
+
+  - job: BuildRngApp
+    displayName: Building Rng Application
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.8'
+          addToPath: true
+          architecture: 'x64'
+      - task: CmdLine@2
+        inputs:
+          script: |
+            python -m pip install --upgrade pip
+            pip install pipenv
+            pipenv --python 3.8
+            pipenv lock && \
+            PIP_USER=1 \
+            PIP_IGNORE_INSTALLED=1 \
+            PIPENV_VENV_IN_PROJECT=1 \
+            pipenv install -d
+          workingDirectory: 'app/rng/'
 
   - job: BuildWebuiApp
     displayName: Building WebUI Application
