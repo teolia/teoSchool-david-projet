@@ -16,7 +16,9 @@ stages:
     - task: CmdLine@2
       inputs:
           script: |
-            bundle install
+            gem install bundler
+            bundle install --retry=3 --jobs=4
+            bundle exec rake
           workingDirectory: 'app/hasher/'
 
   - job: BuildWebuiApp
