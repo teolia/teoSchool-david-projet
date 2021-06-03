@@ -81,4 +81,11 @@ stages:
   jobs:
   - job: SonarCloudAnalysis
     steps:
-    
+    - task: SonarCloudPrepare@1
+      inputs:
+        SonarCloud: 'sonar-cloud'
+        organization: 'pasdethunes'
+        scannerMode: 'MSBuild'
+        projectKey: 'pasdethunes_teoschool-david-projet'
+        projectName: 'pasdethunes'
+    - task: SonarCloudAnalyze@1
