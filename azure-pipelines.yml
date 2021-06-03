@@ -1,0 +1,112 @@
+trigger:
+- master
+- develop
+- feature/*
+- hotfix/*
+- release/*
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+- stage: BuildApps
+  jobs:
+  - job: BuildHasherApp
+    displayName: Building Hasher Application
+    steps:
+    - task: UseRubyVersion@0
+      inputs:
+        versionSpec: '>= 2.7'
+    - task: CmdLine@2
+      inputs:
+          script: |
+            gem install bundler
+            bundle install
+          workingDirectory: 'app/hasher/'
+
+  - job: BuildRngApp
+    displayName: Building Rng Application
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.8'
+          addToPath: true
+          architecture: 'x64'
+      - task: CmdLine@2
+        inputs:
+          script: |
+            python -m pip install --upgrade pip
+            pip install pipenv
+            pipenv --python 3.8
+            pipenv lock && \
+            PIP_USER=1 \
+            PIP_IGNORE_INSTALLED=1 \
+            PIPENV_VENV_IN_PROJECT=1 \
+            pipenv install -d
+          workingDirectory: 'app/rng/'
+      - task: ArchiveFiles@2
+        inputs:
+          rootFolderOrFile: 'app/rng/'
+          includeRootFolder: false
+          archiveType: 'zip'
+          archiveFile: 'rng_app_$(Build.BuildId).zip'
+          replaceExistingArchive: true
+      - task: PublishPipelineArtifact@1
+        inputs:
+          targetPath: '$(Pipeline.Workspace)'
+          artifact: 'rng_app_$(Build.BuildId).zip'
+          publishLocation: 'pipeline'
+
+  - job: BuildWebuiApp
+    displayName: Building WebUI Application
+    steps:
+    - task: Gradle@2
+      inputs:
+        gradleWrapperFile: 'app/webui/gradlew'
+        workingDirectory: 'app/webui/'
+        tasks: 'build'
+        publishJUnitResults: false
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '1.8'
+        gradleOptions: '-Xmx3072m'
+        sonarQubeRunAnalysis: false
+        spotBugsAnalysis: false
+
+  - job: BuildWorkerApp
+    displayName: Building Worker Application
+    steps:
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.8'
+          addToPath: true
+          architecture: 'x64'
+      - task: CmdLine@2
+        inputs:
+          script: |
+            python -m pip install --upgrade pip
+            pip install pipenv
+            pipenv --python 3.8
+            pipenv lock && \
+            PIP_USER=1 \
+            PIP_IGNORE_INSTALLED=1 \
+            PIPENV_VENV_IN_PROJECT=1 \
+            pipenv install -d
+          workingDirectory: 'app/worker/'
+
+
+- stage: TestApps
+  jobs:
+  - job: TestRngApp
+    displayName: Testing Rng Application
+    steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'current'
+        artifactName: 'rng_app_$(Build.BuildId).zip'
+        targetPath: '$(Pipeline.Workspace)/app/rng'
+    - task: CmdLine@2
+      inputs:
+        script: |
+          export PATH=".venv/bin:$PATH"
+          pytest --junitxml=$(Build.StagingDirectory)/rng_results_$(Build.BuildId).xml
+        workingDirectory: 'app/rng/'

@@ -1,2 +1,3 @@
 Dockerfile*
 Pipfile.lock
+tests/*
