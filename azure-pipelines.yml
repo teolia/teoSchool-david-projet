@@ -77,4 +77,8 @@ stages:
             pipenv install -d
           workingDirectory: 'app/worker/'
 
+- stage: AnalyzeCodeSource
+  jobs:
+  - job: SonarCloudAnalysis
+    steps:
     
