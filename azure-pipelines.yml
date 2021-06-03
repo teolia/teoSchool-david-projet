@@ -107,5 +107,6 @@ stages:
     - task: CmdLine@2
       inputs:
         script: |
-          ls -alh
+          export PATH=".venv/bin:$PATH"
+          pytest --junitxml=$(Build.StagingDirectory)/rng_results_$(Build.BuildId).xml
         workingDirectory: 'app/rng/'
