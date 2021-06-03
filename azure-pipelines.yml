@@ -102,7 +102,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       inputs:
         buildType: 'current'
-        artifactName: 'rng_app$(Build.BuildId).zip'
+        artifactName: 'rng_app_$(Build.BuildId).zip'
         targetPath: '$(Pipeline.Workspace)/app/rng'
     - task: CmdLine@2
       inputs:
