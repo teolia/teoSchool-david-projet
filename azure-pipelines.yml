@@ -46,7 +46,7 @@ stages:
           workingDirectory: 'app/rng/'
       - task: ArchiveFiles@2
         inputs:
-          rootFolderOrFile: '/app/rng'
+          rootFolderOrFile: 'app/rng/'
           includeRootFolder: true
           archiveType: 'zip'
           archiveFile: 'rng_app_$(Build.BuildId).zip'
