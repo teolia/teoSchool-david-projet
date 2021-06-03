@@ -46,15 +46,15 @@ stages:
           workingDirectory: 'app/rng/'
       - task: ArchiveFiles@2
         inputs:
-          rootFolderOrFile: '$(Build.BinariesDirectory)/app/rng'
+          rootFolderOrFile: '/app/rng'
           includeRootFolder: true
           archiveType: 'zip'
-          archiveFile: '$(Build.ArtifactStagingDirectory)/rng_app$(Build.BuildId).zip'
+          archiveFile: '$(Build.ArtifactStagingDirectory)/rng_app_$(Build.BuildId).zip'
           replaceExistingArchive: true
       - task: PublishPipelineArtifact@1
         inputs:
           targetPath: '$(Pipeline.Workspace)'
-          artifact: 'rng_app$(Build.BuildId).zip'
+          artifact: 'rng_app_$(Build.BuildId).zip'
           publishLocation: 'pipeline'
 
   - job: BuildWebuiApp
@@ -69,8 +69,7 @@ stages:
         javaHomeOption: 'JDKVersion'
         jdkVersionOption: '1.8'
         gradleOptions: '-Xmx3072m'
-        sonarQubeRunAnalysis: true
-        sqGradlePluginVersionChoice: 'build'
+        sonarQubeRunAnalysis: false
         spotBugsAnalysis: false
 
   - job: BuildWorkerApp
