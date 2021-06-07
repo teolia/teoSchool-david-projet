@@ -30,14 +30,14 @@ stages:
       - task: SonarCloudPrepare@1
         displayName: Preparing SonarCloud rng analysis
         inputs:
-          SonarCloud: 'sonar-cloud'
-          organization: 'pasdethunes'
+          SonarCloud: 'sonar-cloud-github'
+          organization: 'teolia-1'
           scannerMode: 'CLI'
           configMode: 'manual'
-          cliProjectKey: 'pasdethunes_teoschool-david-projet'
-          cliProjectName: 'teoschool-david-projet'
+          cliProjectKey: 'teolia_teoSchool-david-projet'
+          cliProjectName: 'teoSchool-david-projet'
           cliSources: '.'
-          extraProperties: 'sonar.python.coverage.reportPath=$(System.DefaultWorkingDirectory)/app/rng/coverage.xml'
+          extraProperties: 'sonar.python.coverage.reportPaths=$(System.DefaultWorkingDirectory)/app/rng/coverage.xml'
       - task: UsePythonVersion@0
         inputs:
           versionSpec: '3.8'
@@ -104,12 +104,24 @@ stages:
   - job: BuildWorkerApp
     displayName: Building Worker Application
     steps:
+      - task: SonarCloudPrepare@1
+        displayName: Preparing SonarCloud worker analysis
+        inputs:
+          SonarCloud: 'sonar-cloud-github'
+          organization: 'teolia-1'
+          scannerMode: 'CLI'
+          configMode: 'manual'
+          cliProjectKey: 'teolia_teoSchool-david-projet'
+          cliProjectName: 'teoSchool-david-projet'
+          cliSources: '.'
+          extraProperties: 'sonar.python.coverage.reportPaths=$(System.DefaultWorkingDirectory)/app/worker/coverage.xml'
       - task: UsePythonVersion@0
         inputs:
           versionSpec: '3.8'
           addToPath: true
           architecture: 'x64'
       - task: CmdLine@2
+        displayName: Preparing worker Python environment
         inputs:
           script: |
             python -m pip install --upgrade pip
@@ -118,6 +130,35 @@ stages:
             pipenv lock && \
             PIP_USER=1 \
             PIP_IGNORE_INSTALLED=1 \
-            PIPENV_VENV_IN_PROJECT=1 \
-            pipenv install -d --system --ignore-pipfile
+            pipenv install --deploy --ignore-pipfile
           workingDirectory: 'app/worker/'
+      - task: CmdLine@2
+        displayName: Testing worker Python application
+        inputs:
+          script: |
+            pipenv run pytest --junitxml=$(Build.StagingDirectory)/worker_results_$(Build.BuildId).xml --cov=worker --cov-report=xml --cov-report=html
+            ls -alh $(System.DefaultWorkingDirectory)
+            ls -alh $(System.DefaultWorkingDirectory)/app/worker
+          workingDirectory: 'app/worker/'
+      - task: PublishTestResults@2
+        displayName: Publishing worker Python test results
+        inputs:
+          testResultsFormat: 'JUnit'
+          testResultsFiles: 'worker_results_$(Build.BuildId).xml'
+          searchFolder: '$(Build.StagingDirectory)'
+          testRunTitle: 'worker_results_$(Build.BuildId)'
+      - task: PublishCodeCoverageResults@1
+        displayName: Publish worker code coverage results
+        inputs:
+          codeCoverageTool: 'Cobertura'
+          summaryFileLocation: '$(System.DefaultWorkingDirectory)/app/worker/coverage.xml'
+          pathToSources: '$(System.DefaultWorkingDirectory)/app/worker/'
+          reportDirectory: '$(System.DefaultWorkingDirectory)/app/worker/htmlcov'
+          additionalCodeCoverageFiles: '$(System.DefaultWorkingDirectory)/app/worker/htmlcov/**'
+      - task: DeleteFiles@1
+        displayName: Deleting worker htmlcov folder
+        inputs:
+          SourceFolder: '$(System.DefaultWorkingDirectory)/app/worker/htmlcov/'
+          Contents: '**'
+      - task: SonarCloudAnalyze@1
+        displayName: Running SonarCloud worker analysis
