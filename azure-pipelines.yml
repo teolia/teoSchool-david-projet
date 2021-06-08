@@ -4,6 +4,7 @@ variables:
   isRelease: $[startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')]
   isHotfix: $[startsWith(variables['Build.SourceBranch'], 'refs/heads/hotfix/')]
   isFeature: $[startsWith(variables['Build.SourceBranch'], 'refs/heads/feature/')]
+  isPR: $[startsWith(variables['Build.SourceBranch'], 'refs/pull/')]
 
 trigger:
 - master
@@ -86,7 +87,7 @@ stages:
             echo 'bundle install'
           workingDirectory: 'app/hasher/'
     - task: Docker@2
-      condition: ne(variables.isFeature, True)
+      condition: and(ne(variables.isFeature, True), ne(variables.isPR, True))
       displayName: Build & Push hasher Docker image
       inputs:
           containerRegistry: 'docker-registry'
@@ -166,7 +167,7 @@ stages:
       - task: SonarCloudAnalyze@1
         displayName: Running SonarCloud rng analysis
       - task: Docker@2
-        condition: ne(variables.isFeature, True)
+        condition: and(ne(variables.isFeature, True), ne(variables.isPR, True))
         displayName: Build & Push rng Docker image
         inputs:
           containerRegistry: 'docker-registry'
@@ -199,7 +200,7 @@ stages:
         sonarQubeRunAnalysis: false
         spotBugsAnalysis: false
     - task: Docker@2
-      condition: ne(variables.isFeature, True)
+      condition: and(ne(variables.isFeature, True), ne(variables.isPR, True))
       displayName: Build & Push webui Docker image
       inputs:
           containerRegistry: 'docker-registry'
@@ -279,7 +280,7 @@ stages:
       - task: SonarCloudAnalyze@1
         displayName: Running SonarCloud worker analysis
       - task: Docker@2
-        condition: ne(variables.isFeature, True)
+        condition: and(ne(variables.isFeature, True), ne(variables.isPR, True))
         displayName: Build & Push worker Docker image
         inputs:
           containerRegistry: 'docker-registry'
