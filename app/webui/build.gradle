@@ -12,12 +12,6 @@ node {
 //declare a build task
 task build
 
-task sayHello {
-	  doLast {
-	     println 'Hello, world!'
-	  }
-	}
-
 //declare task dependencies
 build.dependsOn npm_build
 npm_build.dependsOn npm_test
