@@ -25,7 +25,8 @@ stages:
       inputs:
         script: |
           echo $(Build.SourceBranch)
-          GitHash=${Build.SourceVersion:0:6}
+          echo $(Build.SourceVersion)
+          GitHash=$(echo $(Build.SourceVersion) | cut -c1-6)
           echo $GitHash
         workingDirectory: '$(System.DefaultWorkingDirectory)'
     - task: PythonScript@0
