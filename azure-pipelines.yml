@@ -1,3 +1,10 @@
+variables:
+  isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+  isDevelop: $[eq(variables['Build.SourceBranch'], 'refs/heads/develop')]
+  isRelease: $[startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')]
+  isHotfix: $[startsWith(variables['Build.SourceBranch'], 'refs/heads/hotfix/')]
+  isFeature: $[startsWith(variables['Build.SourceBranch'], 'refs/heads/feature/')]
+
 trigger:
 - master
 - develop
@@ -9,24 +16,95 @@ pool:
   vmImage: ubuntu-latest
 
 stages:
+- stage: PreBuild
+  jobs:
+  - job: ConfiguringVariables
+    steps:
+    - task: CmdLine@2
+      displayName: Building Docker arguments
+      inputs:
+        script: |
+          echo $(Build.SourceBranch)
+          GitHash=${Build.SourceVersion:0:6}
+          echo $GitHash
+        workingDirectory: '$(System.DefaultWorkingDirectory)'
+    - task: PythonScript@0
+      inputs:
+        scriptSource: 'inline'
+        script: |
+          import os
+          from re import search
+          
+          branch_name = '$(Build.SourceBranch)'
+          tag = 'FEATURE'
+          
+          with open('app/VERSION', 'r') as file:
+            tag_version = file.readline()
+          
+          tag_version = tag_version.rstrip()
+          
+          if (search('master', branch_name)) or (search('hotfix', branch_name)):
+            tag = tag_version
+          else:
+            if search('develop', branch_name):
+              develop_commit = os.environ['GitHash']
+              tag = tag_version + '-' + develop_commit
+            else:
+              if search('release', branch_name):
+                tag = tag_version + '-RC'
+          
+          with open('$(System.DefaultWorkingDirectory)/app/TAG', 'a') as tag_file:
+            tag_file.write(tag)
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(System.DefaultWorkingDirectory)/app/TAG'
+        artifact: 'TAG'
+        publishLocation: 'pipeline'
+
 - stage: BuildApps
   jobs:
   - job: BuildHasherApp
     displayName: Building Hasher Application
     steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'current'
+        artifactName: 'TAG'
+        targetPath: '$(Pipeline.Workspace)'
+    - bash: |
+        TAG=$(cat $(Pipeline.Workspace)/TAG)
+        echo "##vso[task.setvariable variable=TAG]$TAG"
     - task: UseRubyVersion@0
       inputs:
         versionSpec: '>= 2.7'
     - task: CmdLine@2
       inputs:
           script: |
+            echo $(TAG)
             echo 'gem install bundler'
             echo 'bundle install'
           workingDirectory: 'app/hasher/'
-
+    - task: Docker@2
+      condition: ne(variables.isFeature, True)
+      displayName: Build & Push hasher Docker image
+      inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/hasher'
+          command: 'buildAndPush'
+          Dockerfile: 'app/hasher/Dockerfile'
+          buildContext: 'app/hasher/'
+          tags: $(TAG)
   - job: BuildRngApp
     displayName: Building Rng Application
     steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          buildType: 'current'
+          artifactName: 'TAG'
+          targetPath: '$(Pipeline.Workspace)'
+      - bash: |
+          TAG=$(cat $(Pipeline.Workspace)/TAG)
+          echo "##vso[task.setvariable variable=TAG]$TAG"
       - task: SonarCloudPrepare@1
         displayName: Preparing SonarCloud rng analysis
         inputs:
@@ -47,6 +125,7 @@ stages:
         displayName: Building rng Python environment
         inputs:
           script: |
+            echo $(TAG)
             python -m pip install --upgrade pip
             pip install pipenv
             pipenv --python 3.8
@@ -85,10 +164,28 @@ stages:
           Contents: '**'
       - task: SonarCloudAnalyze@1
         displayName: Running SonarCloud rng analysis
+      - task: Docker@2
+        condition: ne(variables.isFeature, True)
+        displayName: Build & Push rng Docker image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/rng'
+          command: 'buildAndPush'
+          Dockerfile: 'app/rng/Dockerfile'
+          buildContext: 'app/rng/'
+          tags: $(TAG)
 
   - job: BuildWebuiApp
     displayName: Building WebUI Application
     steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'current'
+        artifactName: 'TAG'
+        targetPath: '$(Pipeline.Workspace)'
+    - bash: |
+        TAG=$(cat $(Pipeline.Workspace)/TAG)
+        echo "##vso[task.setvariable variable=TAG]$TAG"
     - task: Gradle@2
       inputs:
         gradleWrapperFile: 'app/webui/gradlew'
@@ -100,10 +197,28 @@ stages:
         gradleOptions: '-Xmx3072m'
         sonarQubeRunAnalysis: false
         spotBugsAnalysis: false
+    - task: Docker@2
+      condition: ne(variables.isFeature, True)
+      displayName: Build & Push webui Docker image
+      inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/webui'
+          command: 'buildAndPush'
+          Dockerfile: 'app/webui/Dockerfile'
+          buildContext: 'app/webui/'
+          tags: $(TAG)
 
   - job: BuildWorkerApp
     displayName: Building Worker Application
     steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          buildType: 'current'
+          artifactName: 'TAG'
+          targetPath: '$(Pipeline.Workspace)'
+      - bash: |
+          TAG=$(cat $(Pipeline.Workspace)/TAG)
+          echo "##vso[task.setvariable variable=TAG]$TAG"
       - task: SonarCloudPrepare@1
         displayName: Preparing SonarCloud worker analysis
         inputs:
@@ -162,3 +277,13 @@ stages:
           Contents: '**'
       - task: SonarCloudAnalyze@1
         displayName: Running SonarCloud worker analysis
+      - task: Docker@2
+        condition: ne(variables.isFeature, True)
+        displayName: Build & Push worker Docker image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/worker'
+          command: 'buildAndPush'
+          Dockerfile: 'app/worker/Dockerfile'
+          buildContext: 'app/worker/'
+          tags: $(TAG)
