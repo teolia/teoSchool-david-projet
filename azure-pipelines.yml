@@ -27,8 +27,6 @@ stages:
         script: |
           echo $(Build.SourceBranch)
           echo $(Build.SourceVersion)
-          GitHash=$(echo $(Build.SourceVersion) | cut -c1-6)
-          echo $GitHash
         workingDirectory: '$(System.DefaultWorkingDirectory)'
     - task: PythonScript@0
       inputs:
@@ -49,7 +47,7 @@ stages:
             tag = tag_version
           else:
             if search('develop', branch_name):
-              develop_commit = os.environ['GitHash']
+              develop_commit = '$(Build.SourceVersion)'[0:6]
               tag = tag_version + '-' + develop_commit
             else:
               if search('release', branch_name):
