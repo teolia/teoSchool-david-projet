@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webui-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      component: webui
+  template:
+    metadata:
+      labels:
+        component: webui
+    spec:
+      hostname: webui
+      containers:
+        - name: webui
+          image: dafespinelsa/webui:1.0-6228e7
+          ports:
+            - containerPort: 3000
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            periodSeconds: 10
