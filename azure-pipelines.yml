@@ -39,6 +39,8 @@ stages:
           
           branch_name = '$(Build.SourceBranch)'
           tag = 'FEATURE'
+          print(os.environ)
+          print($GitHash)
           develop_commit = os.environ['GitHash']
           
           with open('app/VERSION', 'r') as file:
