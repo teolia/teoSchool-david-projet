@@ -27,8 +27,6 @@ stages:
         script: |
           echo $(Build.SourceBranch)
           echo $(Build.SourceVersion)
-          export GitHash=$(echo $(Build.SourceVersion) | cut -c1-6)
-          echo $GitHash
         workingDirectory: '$(System.DefaultWorkingDirectory)'
     - task: PythonScript@0
       inputs:
@@ -39,9 +37,8 @@ stages:
           
           branch_name = '$(Build.SourceBranch)'
           tag = 'FEATURE'
-          print(os.environ)
-          print($GitHash)
-          develop_commit = os.environ['GitHash']
+          git_Hash = '$(Build.SourceVersion)'[0:6]
+          print(git_Hash)
           
           with open('app/VERSION', 'r') as file:
             tag_version = file.readline()
