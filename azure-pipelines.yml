@@ -37,8 +37,6 @@ stages:
           
           branch_name = '$(Build.SourceBranch)'
           tag = 'FEATURE'
-          git_Hash = '$(Build.SourceVersion)'[0:6]
-          print(git_Hash)
           
           with open('app/VERSION', 'r') as file:
             tag_version = file.readline()
@@ -49,7 +47,7 @@ stages:
             tag = tag_version
           else:
             if search('develop', branch_name):
-              develop_commit = os.environ['GitHash']
+              develop_commit = '$(Build.SourceVersion)'[0:6]
               tag = tag_version + '-' + develop_commit
             else:
               if search('release', branch_name):
