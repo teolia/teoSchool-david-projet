@@ -287,3 +287,30 @@ stages:
           Dockerfile: 'app/worker/Dockerfile'
           buildContext: 'app/worker/'
           tags: $(TAG)
+
+- stage: Staging
+#  condition: eq(variables.isRelease, True)
+  variables:      
+    suffix: $[replace(variables['Build.SourceBranch'], 'refs/heads/', '')]
+  jobs:
+  - job: UpdatingStagingServerfiles
+    displayName: Updating Staging Server branch
+    steps:
+      - task: SSH@0
+        inputs:
+          sshEndpoint: 'staging-server'
+          runOptions: 'commands'
+          commands: 'bash /home/cloud_user/staging/script_stage.sh $(suffix)'
+          failOnStdErr: false
+          readyTimeout: '20000'
+  - job: waitForValidation
+    displayName: Wait for external validation - RC Staging OK?
+    pool: server
+    timeoutInMinutes: 1440
+    steps:
+    - task: ManualValidation@0
+      timeoutInMinutes: 1440 # task times out in 1 day
+      inputs:
+        notifyUsers: 
+        instructions: 'Please validate the RC staging and resume'
+        onTimeout: 'resume'
