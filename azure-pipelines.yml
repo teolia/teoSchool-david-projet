@@ -289,7 +289,7 @@ stages:
           tags: $(TAG)
 
 - stage: Staging
-#  condition: eq(variables.isRelease, True)
+  condition: eq(variables.isRelease, True)
   variables:      
     suffix: $[replace(variables['Build.SourceBranch'], 'refs/heads/', '')]
   jobs:
