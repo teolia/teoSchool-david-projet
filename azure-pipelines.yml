@@ -7,11 +7,17 @@ variables:
   isPR: $[startsWith(variables['Build.SourceBranch'], 'refs/pull/')]
 
 trigger:
-- master
-- develop
-- feature/*
-- hotfix/*
-- release/*
+  branches:
+    include:
+    - master
+    - develop
+    - feature/*
+    - hotfix/*
+    - release/*
+  paths:
+    exclude:
+      - azure-pipelines.yml
+
 
 pool:
   vmImage: ubuntu-latest
