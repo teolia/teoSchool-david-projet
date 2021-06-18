@@ -8,5 +8,5 @@ spec:
   selector:
     component: webui
   ports:
-    - port: 3000
+    - port: 8082
       nodePort: 8082

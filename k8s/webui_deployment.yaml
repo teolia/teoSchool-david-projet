@@ -18,11 +18,11 @@ spec:
         - name: webui
           image: dafespinelsa/webui:1.0-6228e7
           ports:
-            - containerPort: 3000
+            - containerPort: 8080
           livenessProbe:
             httpGet:
               path: /
-              port: 3000
+              port: 8080
             initialDelaySeconds: 15
             timeoutSeconds: 1
             periodSeconds: 10
