@@ -16,7 +16,7 @@ spec:
       hostname: rng
       containers:
         - name: rng
-          image: dafespinelsa/rng:1.0-6228e7
+          image: dafespinelsa/rng:1.0
           ports:
             - containerPort: 8080
           livenessProbe:
