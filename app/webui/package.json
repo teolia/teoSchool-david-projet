@@ -17,6 +17,7 @@
         "express": "~4.16.0",
         "redis": "3.1.2",
         "rewire": "*",
-        "sinon": "*"
+        "sinon": "*",
+        "minimist": ">=0.2.1"
     }
 }

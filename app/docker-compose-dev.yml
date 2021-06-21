@@ -18,7 +18,7 @@ services:
             - /usr/src/app/node_modules
             - ./webui:/usr/src/app
         ports:
-            - '3000:80'
+            - '8080:8080'
     worker:
         build:
             dockerfile: Dockerfile
