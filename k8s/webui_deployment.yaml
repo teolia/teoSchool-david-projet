@@ -16,7 +16,7 @@ spec:
       hostname: webui
       containers:
         - name: webui
-          image: dafespinelsa/webui:1.0-6228e7
+          image: dafespinelsa/webui:1.0
           ports:
             - containerPort: 8080
           livenessProbe:

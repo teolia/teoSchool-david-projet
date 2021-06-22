@@ -16,5 +16,5 @@ spec:
       hostname: worker
       containers:
         - name: worker
-          image: dafespinelsa/worker:1.0-6228e7
+          image: dafespinelsa/worker:1.0
           
