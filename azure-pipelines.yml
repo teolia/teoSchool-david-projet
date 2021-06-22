@@ -302,11 +302,19 @@ stages:
   - job: UpdatingStagingServerfiles
     displayName: Updating Staging Server branch
     steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          buildType: 'current'
+          artifactName: 'TAG'
+          targetPath: '$(Pipeline.Workspace)'
+      - bash: |
+          TAG=$(cat $(Pipeline.Workspace)/TAG)
+          echo "##vso[task.setvariable variable=TAG]$TAG"
       - task: SSH@0
         inputs:
           sshEndpoint: 'staging-server'
           runOptions: 'commands'
-          commands: 'bash /home/cloud_user/staging/script_stage.sh $(suffix)'
+          commands: 'bash /home/cloud_user/staging/script_stage.sh $(TAG)'
           failOnStdErr: false
           readyTimeout: '20000'
   - job: waitForValidation
