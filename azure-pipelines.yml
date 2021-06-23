@@ -87,8 +87,8 @@ stages:
       inputs:
           script: |
             echo $(TAG)
-            echo 'gem install bundler'
-            echo 'bundle install'
+            gem install bundler
+            bundle install
           workingDirectory: 'app/hasher/'
     - task: Docker@2
       condition: and(ne(variables.isFeature, True), ne(variables.isPR, True))
