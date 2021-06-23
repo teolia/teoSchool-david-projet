@@ -296,8 +296,6 @@ stages:
 
 - stage: Staging
   condition: eq(variables.isRelease, True)
-  variables:      
-    suffix: $[replace(variables['Build.SourceBranch'], 'refs/heads/', '')]
   jobs:
   - job: UpdatingStagingServerfiles
     displayName: Updating Staging Server branch
@@ -328,3 +326,13 @@ stages:
         notifyUsers: 
         instructions: 'Please validate the RC staging and resume'
         onTimeout: 'resume'
+
+- stage: ProdcutionTagging
+  condition: eq(variables.isMaster, True)
+  jobs:
+  - job: UpdatingDockerTags
+    displayName: Updating Docker Images Tags
+    steps:
+      - task: CmdLine@2
+        inputs:
+          script: 'echo Hello world'
