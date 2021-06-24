@@ -333,6 +333,14 @@ stages:
     dependsOn: waitForValidation
     condition: succeeded()
     steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          buildType: 'current'
+          artifactName: 'TAG'
+          targetPath: '$(Pipeline.Workspace)'
+      - bash: |
+          TAG=$(cat $(Pipeline.Workspace)/TAG)
+          echo "##vso[task.setvariable variable=TAG]$TAG"
       - task: CmdLine@2
         displayName: Generating TAG as artifact
         inputs:
