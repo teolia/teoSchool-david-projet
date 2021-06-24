@@ -24,6 +24,7 @@ pool:
 
 stages:
 - stage: PreBuild
+  condition: ne(variables.isMaster, True)
   jobs:
   - job: ConfiguringVariables
     steps:
@@ -57,7 +58,7 @@ stages:
               tag = tag_version + '-' + develop_commit
             else:
               if search('release', branch_name):
-                tag = tag_version + '-RC'
+                tag = tag_version + '-rc'
           
           with open('$(System.DefaultWorkingDirectory)/app/TAG', 'a') as tag_file:
             tag_file.write(tag)
@@ -68,6 +69,7 @@ stages:
         publishLocation: 'pipeline'
 
 - stage: BuildApps
+  condition: ne(variables.isMaster, True)
   jobs:
   - job: BuildHasherApp
     displayName: Building Hasher Application
@@ -296,8 +298,6 @@ stages:
 
 - stage: Staging
   condition: eq(variables.isRelease, True)
-  variables:      
-    suffix: $[replace(variables['Build.SourceBranch'], 'refs/heads/', '')]
   jobs:
   - job: UpdatingStagingServerfiles
     displayName: Updating Staging Server branch
@@ -314,7 +314,7 @@ stages:
         inputs:
           sshEndpoint: 'staging-server'
           runOptions: 'commands'
-          commands: 'bash /home/cloud_user/staging/script_stage.sh $(TAG)'
+          commands: 'bash /home/cloud_user/teoSchool-david-deployment/script_staging.sh $(TAG)'
           failOnStdErr: false
           readyTimeout: '20000'
   - job: waitForValidation
@@ -328,3 +328,91 @@ stages:
         notifyUsers: 
         instructions: 'Please validate the RC staging and resume'
         onTimeout: 'resume'
+  - job: ExportingReleaseCandidateTag
+    displayName: Exporting Release Candidate Tag
+    dependsOn: waitForValidation
+    condition: succeeded()
+    steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          buildType: 'current'
+          artifactName: 'TAG'
+          targetPath: '$(Pipeline.Workspace)'
+      - bash: |
+          TAG=$(cat $(Pipeline.Workspace)/TAG)
+          echo "##vso[task.setvariable variable=TAG]$TAG"
+      - task: CmdLine@2
+        displayName: Generating TAG as artifact
+        inputs:
+          script: 'echo $(TAG) > $(Build.ArtifactStagingDirectory)/tag'
+      - task: UniversalPackages@0
+        displayName: Publishing Release Candidate Tag as universal package
+        inputs:
+          command: 'publish'
+          publishDirectory: '$(Build.ArtifactStagingDirectory)/tag'
+          feedsToUsePublish: 'internal'
+          vstsFeedPublish: '74a2a6cd-34a0-44e5-a714-3236b2f6efb3'
+          vstsFeedPackagePublish: 'release-tag'
+          versionOption: 'custom'
+          versionPublish: '$(TAG)'
+          packagePublishDescription: 'Accepted release candidate for master'
+
+- stage: ProdcutionTagging
+  condition: eq(variables.isMaster, True)
+  jobs:
+  - job: UpdatingDockerTags
+    displayName: Updating Docker Images Tags
+    steps:
+      - task: UniversalPackages@0
+        inputs:
+          command: 'download'
+          downloadDirectory: '$(System.DefaultWorkingDirectory)'
+          feedsToUse: 'internal'
+          vstsFeed: '74a2a6cd-34a0-44e5-a714-3236b2f6efb3'
+          vstsFeedPackage: 'e34d6976-fff0-4d29-b69e-b7112ada9716'
+      - task: CmdLine@2
+        inputs:
+          script: |
+            TAG=$(cat $(System.DefaultWorkingDirectory)/release-tag)
+            echo "##vso[task.setvariable variable=TAG]$TAG"
+            echo "- Downloading docker images with TAG"
+            docker pull dafespinelsa/hasher:$(TAG)
+            docker pull dafespinelsa/rng:$(TAG)
+            docker pull dafespinelsa/webui:$(TAG)
+            docker pull dafespinelsa/worker:$(TAG)
+
+            echo "- Chaging dokcer images tags"
+            FINAL_TAG=$(cat $(System.DefaultWorkingDirectory)/app/VERSION)
+            echo "##vso[task.setvariable variable=FINAL_TAG]$FINAL_TAG"
+            docker tag dafespinelsa/hasher:$(TAG) dafespinelsa/hasher:$(FINAL_TAG)
+            docker tag dafespinelsa/rng:$(TAG) dafespinelsa/rng:$(FINAL_TAG)
+            docker tag dafespinelsa/webui:$(TAG) dafespinelsa/webui:$(FINAL_TAG)
+            docker tag dafespinelsa/worker:$(TAG) dafespinelsa/worker:$(FINAL_TAG)
+      - task: Docker@2
+        displayName: Pushing hasher docker prod image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/hasher'
+          command: 'push'
+          tags: '$(FINAL_TAG)'
+      - task: Docker@2
+        displayName: Pushing rng docker prod image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/rng'
+          command: 'push'
+          tags: '$(FINAL_TAG)'
+      - task: Docker@2
+        displayName: Pushing webui docker prod image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/webui'
+          command: 'push'
+          tags: '$(FINAL_TAG)'
+      - task: Docker@2
+        displayName: Pushing worker docker prod image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/worker'
+          command: 'push'
+          tags: '$(FINAL_TAG)'
