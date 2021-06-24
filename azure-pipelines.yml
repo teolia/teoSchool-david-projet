@@ -314,7 +314,7 @@ stages:
         inputs:
           sshEndpoint: 'staging-server'
           runOptions: 'commands'
-          commands: 'bash /home/cloud_user/staging/script_stage.sh $(TAG)'
+          commands: 'bash /home/cloud_user/teoSchool-david-deployment/script_staging.sh $(TAG)'
           failOnStdErr: false
           readyTimeout: '20000'
   - job: waitForValidation
