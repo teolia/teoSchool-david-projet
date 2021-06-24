@@ -336,7 +336,7 @@ stages:
       - task: CmdLine@2
         displayName: Generating TAG as artifact
         inputs:
-          script: 'echo $TAG > $(Build.ArtifactStagingDirectory)/tag'
+          script: 'echo $(TAG) > $(Build.ArtifactStagingDirectory)/tag'
       - task: UniversalPackages@0
         displayName: Publishing Release Candidate Tag as universal package
         inputs:
