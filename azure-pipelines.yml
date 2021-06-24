@@ -351,7 +351,7 @@ stages:
           command: 'publish'
           publishDirectory: '$(Build.ArtifactStagingDirectory)/tag'
           feedsToUsePublish: 'internal'
-          vstsFeedPublish: 'a51d41f5-106e-4352-898b-19f87da5c3ee'
+          vstsFeedPublish: '74a2a6cd-34a0-44e5-a714-3236b2f6efb3'
           vstsFeedPackagePublish: 'release-tag'
           versionOption: 'minor'
           packagePublishDescription: 'Accepted release candidate for master'
@@ -367,7 +367,7 @@ stages:
           command: 'download'
           downloadDirectory: '$(System.DefaultWorkingDirectory)'
           feedsToUse: 'internal'
-          vstsFeed: 'a51d41f5-106e-4352-898b-19f87da5c3ee'
+          vstsFeed: '74a2a6cd-34a0-44e5-a714-3236b2f6efb3'
           vstsFeedPackage: 'release-tag'
       - task: CmdLine@2
         inputs:
