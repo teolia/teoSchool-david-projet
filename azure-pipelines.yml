@@ -1,0 +1,418 @@
+variables:
+  isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+  isDevelop: $[eq(variables['Build.SourceBranch'], 'refs/heads/develop')]
+  isRelease: $[startsWith(variables['Build.SourceBranch'], 'refs/heads/release/')]
+  isHotfix: $[startsWith(variables['Build.SourceBranch'], 'refs/heads/hotfix/')]
+  isFeature: $[startsWith(variables['Build.SourceBranch'], 'refs/heads/feature/')]
+  isPR: $[startsWith(variables['Build.SourceBranch'], 'refs/pull/')]
+
+trigger:
+  branches:
+    include:
+    - master
+    - develop
+    - feature/*
+    - hotfix/*
+    - release/*
+  paths:
+    exclude:
+      - azure-pipelines.yml
+
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+- stage: PreBuild
+  condition: ne(variables.isMaster, True)
+  jobs:
+  - job: ConfiguringVariables
+    steps:
+    - task: CmdLine@2
+      displayName: Building Docker arguments
+      inputs:
+        script: |
+          echo $(Build.SourceBranch)
+          echo $(Build.SourceVersion)
+        workingDirectory: '$(System.DefaultWorkingDirectory)'
+    - task: PythonScript@0
+      inputs:
+        scriptSource: 'inline'
+        script: |
+          import os
+          from re import search
+          
+          branch_name = '$(Build.SourceBranch)'
+          tag = 'FEATURE'
+          
+          with open('app/VERSION', 'r') as file:
+            tag_version = file.readline()
+          
+          tag_version = tag_version.rstrip()
+          
+          if (search('master', branch_name)) or (search('hotfix', branch_name)):
+            tag = tag_version
+          else:
+            if search('develop', branch_name):
+              develop_commit = '$(Build.SourceVersion)'[0:6]
+              tag = tag_version + '-' + develop_commit
+            else:
+              if search('release', branch_name):
+                tag = tag_version + '-rc'
+          
+          with open('$(System.DefaultWorkingDirectory)/app/TAG', 'a') as tag_file:
+            tag_file.write(tag)
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: '$(System.DefaultWorkingDirectory)/app/TAG'
+        artifact: 'TAG'
+        publishLocation: 'pipeline'
+
+- stage: BuildApps
+  condition: ne(variables.isMaster, True)
+  jobs:
+  - job: BuildHasherApp
+    displayName: Building Hasher Application
+    steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'current'
+        artifactName: 'TAG'
+        targetPath: '$(Pipeline.Workspace)'
+    - bash: |
+        TAG=$(cat $(Pipeline.Workspace)/TAG)
+        echo "##vso[task.setvariable variable=TAG]$TAG"
+    - task: UseRubyVersion@0
+      inputs:
+        versionSpec: '>= 2.7'
+    - task: CmdLine@2
+      inputs:
+          script: |
+            echo $(TAG)
+            gem install bundler
+            bundle install
+          workingDirectory: 'app/hasher/'
+    - task: Docker@2
+      condition: and(ne(variables.isFeature, True), ne(variables.isPR, True))
+      displayName: Build & Push hasher Docker image
+      inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/hasher'
+          command: 'buildAndPush'
+          Dockerfile: 'app/hasher/Dockerfile'
+          buildContext: 'app/hasher/'
+          tags: $(TAG)
+  - job: BuildRngApp
+    displayName: Building Rng Application
+    steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          buildType: 'current'
+          artifactName: 'TAG'
+          targetPath: '$(Pipeline.Workspace)'
+      - bash: |
+          TAG=$(cat $(Pipeline.Workspace)/TAG)
+          echo "##vso[task.setvariable variable=TAG]$TAG"
+      - task: SonarCloudPrepare@1
+        displayName: Preparing SonarCloud rng analysis
+        inputs:
+          SonarCloud: 'sonar-cloud-github'
+          organization: 'teolia-1'
+          scannerMode: 'CLI'
+          configMode: 'manual'
+          cliProjectKey: 'teolia_teoSchool-david-projet'
+          cliProjectName: 'teoSchool-david-projet'
+          cliSources: '.'
+          extraProperties: 'sonar.python.coverage.reportPaths=$(System.DefaultWorkingDirectory)/app/rng/coverage.xml'
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.8'
+          addToPath: true
+          architecture: 'x64'
+      - task: CmdLine@2
+        displayName: Building rng Python environment
+        inputs:
+          script: |
+            echo $(TAG)
+            python -m pip install --upgrade pip
+            pip install pipenv
+            pipenv --python 3.8
+            pipenv lock && \
+            PIP_USER=1 \
+            PIP_IGNORE_INSTALLED=1 \
+            pipenv install --deploy --ignore-pipfile
+          workingDirectory: 'app/rng/'
+      - task: CmdLine@2
+        displayName: Testing rng Python application
+        inputs:
+          script: |
+            pipenv run pytest --junitxml=$(Build.StagingDirectory)/rng_results_$(Build.BuildId).xml --cov=rng --cov-report=xml --cov-report=html
+            ls -alh $(System.DefaultWorkingDirectory)
+            ls -alh $(System.DefaultWorkingDirectory)/app/rng
+          workingDirectory: 'app/rng/'
+      - task: PublishTestResults@2
+        displayName: Publishing rng Python test results
+        inputs:
+          testResultsFormat: 'JUnit'
+          testResultsFiles: 'rng_results_$(Build.BuildId).xml'
+          searchFolder: '$(Build.StagingDirectory)'
+          testRunTitle: 'rng_results_$(Build.BuildId)'
+      - task: PublishCodeCoverageResults@1
+        displayName: Publish rng code coverage results
+        inputs:
+          codeCoverageTool: 'Cobertura'
+          summaryFileLocation: '$(System.DefaultWorkingDirectory)/app/rng/coverage.xml'
+          pathToSources: '$(System.DefaultWorkingDirectory)/app/rng/'
+          reportDirectory: '$(System.DefaultWorkingDirectory)/app/rng/htmlcov'
+          additionalCodeCoverageFiles: '$(System.DefaultWorkingDirectory)/app/rng/htmlcov/**'
+      - task: DeleteFiles@1
+        displayName: Deleting rng htmlcov folder
+        inputs:
+          SourceFolder: '$(System.DefaultWorkingDirectory)/app/rng/htmlcov/'
+          Contents: '**'
+      - task: SonarCloudAnalyze@1
+        displayName: Running SonarCloud rng analysis
+      - task: Docker@2
+        condition: and(ne(variables.isFeature, True), ne(variables.isPR, True))
+        displayName: Build & Push rng Docker image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/rng'
+          command: 'buildAndPush'
+          Dockerfile: 'app/rng/Dockerfile'
+          buildContext: 'app/rng/'
+          tags: $(TAG)
+
+  - job: BuildWebuiApp
+    displayName: Building WebUI Application
+    steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'current'
+        artifactName: 'TAG'
+        targetPath: '$(Pipeline.Workspace)'
+    - bash: |
+        TAG=$(cat $(Pipeline.Workspace)/TAG)
+        echo "##vso[task.setvariable variable=TAG]$TAG"
+    - task: Gradle@2
+      inputs:
+        gradleWrapperFile: 'app/webui/gradlew'
+        workingDirectory: 'app/webui/'
+        tasks: 'build'
+        publishJUnitResults: false
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: '1.8'
+        gradleOptions: '-Xmx3072m'
+        sonarQubeRunAnalysis: false
+        spotBugsAnalysis: false
+    - task: Docker@2
+      condition: and(ne(variables.isFeature, True), ne(variables.isPR, True))
+      displayName: Build & Push webui Docker image
+      inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/webui'
+          command: 'buildAndPush'
+          Dockerfile: 'app/webui/Dockerfile'
+          buildContext: 'app/webui/'
+          tags: $(TAG)
+
+  - job: BuildWorkerApp
+    displayName: Building Worker Application
+    steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          buildType: 'current'
+          artifactName: 'TAG'
+          targetPath: '$(Pipeline.Workspace)'
+      - bash: |
+          TAG=$(cat $(Pipeline.Workspace)/TAG)
+          echo "##vso[task.setvariable variable=TAG]$TAG"
+      - task: SonarCloudPrepare@1
+        displayName: Preparing SonarCloud worker analysis
+        inputs:
+          SonarCloud: 'sonar-cloud-github'
+          organization: 'teolia-1'
+          scannerMode: 'CLI'
+          configMode: 'manual'
+          cliProjectKey: 'teolia_teoSchool-david-projet'
+          cliProjectName: 'teoSchool-david-projet'
+          cliSources: '.'
+          extraProperties: 'sonar.python.coverage.reportPaths=$(System.DefaultWorkingDirectory)/app/worker/coverage.xml'
+      - task: UsePythonVersion@0
+        inputs:
+          versionSpec: '3.8'
+          addToPath: true
+          architecture: 'x64'
+      - task: CmdLine@2
+        displayName: Preparing worker Python environment
+        inputs:
+          script: |
+            python -m pip install --upgrade pip
+            pip install pipenv
+            pipenv --python 3.8
+            pipenv lock && \
+            PIP_USER=1 \
+            PIP_IGNORE_INSTALLED=1 \
+            pipenv install --deploy --ignore-pipfile
+          workingDirectory: 'app/worker/'
+      - task: CmdLine@2
+        displayName: Testing worker Python application
+        inputs:
+          script: |
+            pipenv run pytest --junitxml=$(Build.StagingDirectory)/worker_results_$(Build.BuildId).xml --cov=worker --cov-report=xml --cov-report=html
+            ls -alh $(System.DefaultWorkingDirectory)
+            ls -alh $(System.DefaultWorkingDirectory)/app/worker
+          workingDirectory: 'app/worker/'
+      - task: PublishTestResults@2
+        displayName: Publishing worker Python test results
+        inputs:
+          testResultsFormat: 'JUnit'
+          testResultsFiles: 'worker_results_$(Build.BuildId).xml'
+          searchFolder: '$(Build.StagingDirectory)'
+          testRunTitle: 'worker_results_$(Build.BuildId)'
+      - task: PublishCodeCoverageResults@1
+        displayName: Publish worker code coverage results
+        inputs:
+          codeCoverageTool: 'Cobertura'
+          summaryFileLocation: '$(System.DefaultWorkingDirectory)/app/worker/coverage.xml'
+          pathToSources: '$(System.DefaultWorkingDirectory)/app/worker/'
+          reportDirectory: '$(System.DefaultWorkingDirectory)/app/worker/htmlcov'
+          additionalCodeCoverageFiles: '$(System.DefaultWorkingDirectory)/app/worker/htmlcov/**'
+      - task: DeleteFiles@1
+        displayName: Deleting worker htmlcov folder
+        inputs:
+          SourceFolder: '$(System.DefaultWorkingDirectory)/app/worker/htmlcov/'
+          Contents: '**'
+      - task: SonarCloudAnalyze@1
+        displayName: Running SonarCloud worker analysis
+      - task: Docker@2
+        condition: and(ne(variables.isFeature, True), ne(variables.isPR, True))
+        displayName: Build & Push worker Docker image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/worker'
+          command: 'buildAndPush'
+          Dockerfile: 'app/worker/Dockerfile'
+          buildContext: 'app/worker/'
+          tags: $(TAG)
+
+- stage: Staging
+  condition: eq(variables.isRelease, True)
+  jobs:
+  - job: UpdatingStagingServerfiles
+    displayName: Updating Staging Server branch
+    steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          buildType: 'current'
+          artifactName: 'TAG'
+          targetPath: '$(Pipeline.Workspace)'
+      - bash: |
+          TAG=$(cat $(Pipeline.Workspace)/TAG)
+          echo "##vso[task.setvariable variable=TAG]$TAG"
+      - task: SSH@0
+        inputs:
+          sshEndpoint: 'staging-server'
+          runOptions: 'commands'
+          commands: 'bash /home/cloud_user/teoSchool-david-deployment/script_staging.sh $(TAG)'
+          failOnStdErr: false
+          readyTimeout: '20000'
+  - job: waitForValidation
+    displayName: Wait for external validation - RC Staging OK?
+    pool: server
+    timeoutInMinutes: 1440
+    steps:
+    - task: ManualValidation@0
+      timeoutInMinutes: 1440 # task times out in 1 day
+      inputs:
+        notifyUsers: 
+        instructions: 'Please validate the RC staging and resume'
+        onTimeout: 'resume'
+  - job: ExportingReleaseCandidateTag
+    displayName: Exporting Release Candidate Tag
+    dependsOn: waitForValidation
+    condition: succeeded()
+    steps:
+      - task: DownloadPipelineArtifact@2
+        inputs:
+          buildType: 'current'
+          artifactName: 'TAG'
+          targetPath: '$(Pipeline.Workspace)'
+      - bash: |
+          TAG=$(cat $(Pipeline.Workspace)/TAG)
+          echo "##vso[task.setvariable variable=TAG]$TAG"
+      - task: CmdLine@2
+        displayName: Generating TAG as artifact
+        inputs:
+          script: 'echo $(TAG) > $(Build.ArtifactStagingDirectory)/tag'
+      - task: UniversalPackages@0
+        displayName: Publishing Release Candidate Tag as universal package
+        inputs:
+          command: 'publish'
+          publishDirectory: '$(Build.ArtifactStagingDirectory)/tag'
+          feedsToUsePublish: 'internal'
+          vstsFeedPublish: '74a2a6cd-34a0-44e5-a714-3236b2f6efb3'
+          vstsFeedPackagePublish: 'release-tag'
+          versionOption: 'custom'
+          versionPublish: '$(TAG)'
+          packagePublishDescription: 'Accepted release candidate for master'
+
+- stage: ProdcutionTagging
+  condition: eq(variables.isMaster, True)
+  jobs:
+  - job: UpdatingDockerTags
+    displayName: Updating Docker Images Tags
+    steps:
+      - task: UniversalPackages@0
+        inputs:
+          command: 'download'
+          downloadDirectory: '$(System.DefaultWorkingDirectory)'
+          feedsToUse: 'internal'
+          vstsFeed: '74a2a6cd-34a0-44e5-a714-3236b2f6efb3'
+          vstsFeedPackage: 'e34d6976-fff0-4d29-b69e-b7112ada9716'
+      - task: CmdLine@2
+        inputs:
+          script: |
+            TAG=$(cat $(System.DefaultWorkingDirectory)/release-tag)
+            echo "##vso[task.setvariable variable=TAG]$TAG"
+            echo "- Downloading docker images with TAG"
+            docker pull dafespinelsa/hasher:$(TAG)
+            docker pull dafespinelsa/rng:$(TAG)
+            docker pull dafespinelsa/webui:$(TAG)
+            docker pull dafespinelsa/worker:$(TAG)
+
+            echo "- Chaging dokcer images tags"
+            FINAL_TAG=$(cat $(System.DefaultWorkingDirectory)/app/VERSION)
+            echo "##vso[task.setvariable variable=FINAL_TAG]$FINAL_TAG"
+            docker tag dafespinelsa/hasher:$(TAG) dafespinelsa/hasher:$(FINAL_TAG)
+            docker tag dafespinelsa/rng:$(TAG) dafespinelsa/rng:$(FINAL_TAG)
+            docker tag dafespinelsa/webui:$(TAG) dafespinelsa/webui:$(FINAL_TAG)
+            docker tag dafespinelsa/worker:$(TAG) dafespinelsa/worker:$(FINAL_TAG)
+      - task: Docker@2
+        displayName: Pushing hasher docker prod image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/hasher'
+          command: 'push'
+          tags: '$(FINAL_TAG)'
+      - task: Docker@2
+        displayName: Pushing rng docker prod image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/rng'
+          command: 'push'
+          tags: '$(FINAL_TAG)'
+      - task: Docker@2
+        displayName: Pushing webui docker prod image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/webui'
+          command: 'push'
+          tags: '$(FINAL_TAG)'
+      - task: Docker@2
+        displayName: Pushing worker docker prod image
+        inputs:
+          containerRegistry: 'docker-registry'
+          repository: 'dafespinelsa/worker'
+          command: 'push'
+          tags: '$(FINAL_TAG)'

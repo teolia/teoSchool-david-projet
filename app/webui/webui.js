@@ -4,7 +4,7 @@ var redis = require('redis');
 
 var client = redis.createClient(6379, 'redis');
 client.on("error", function(err) {
-    console.error("Redis error", err);
+    console.error("Redis found error", err);
 });
 
 app.get('/', function(req, res) {
@@ -26,6 +26,8 @@ app.get('/json', function(req, res) {
 
 app.use(express.static('files'));
 
-var server = app.listen(80, function() {
-    console.log('WEBUI running on port 80');
+var server = app.listen(8080, function() {
+    console.log('WEBUI running on port 8080');
 });
+
+module.exports = app;

@@ -6,6 +6,10 @@ name = "pypi"
 [packages]
 redis = "*"
 requests = "*"
+pytest = "*"
+pytest-cov = "*"
+pytest-xdist = "*"
+requests-mock = "*"
 
 [dev-packages]
 

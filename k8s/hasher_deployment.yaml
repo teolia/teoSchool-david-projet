@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hasher-deployment
+  namespace: docker-coins
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      component: hasher
+  template:
+    metadata:
+      labels:
+        component: hasher
+    spec:
+      hostname: hasher
+      containers:
+        - name: hasher
+          image: dafespinelsa/hasher:1.0
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 15
+            timeoutSeconds: 1
+            periodSeconds: 10

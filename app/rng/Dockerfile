@@ -2,7 +2,6 @@ FROM python:3.8-alpine as builder
 ENV PYBASE=/pybase 
 ENV PYTHONUSERBASE=$PYBASE 
 ENV PATH=$PYBASE/bin:$PATH 
-ENV FLASK_APP="rng"
 
 RUN pip install pipenv
 
@@ -19,6 +18,7 @@ FROM python:3.8-alpine
 
 COPY --from=builder /tmp/.venv /venv
 ENV PATH="/venv/bin:$PATH"
+ENV FLASK_APP="rng"
 
 RUN addgroup --system app \
     && adduser -S -G app app
@@ -29,4 +29,4 @@ USER app
 
 COPY . .
 
-CMD ["python", "-m", "gunicorn", "--bind", "0.0.0.0:80", "rng:app"]
+CMD ["python", "-m", "gunicorn", "--bind", "0.0.0.0:8080", "rng:app"]
