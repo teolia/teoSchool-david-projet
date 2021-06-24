@@ -24,6 +24,7 @@ pool:
 
 stages:
 - stage: PreBuild
+  condition: ne(variables.isMaster, True)
   jobs:
   - job: ConfiguringVariables
     steps:
@@ -68,6 +69,7 @@ stages:
         publishLocation: 'pipeline'
 
 - stage: BuildApps
+  condition: ne(variables.isMaster, True)
   jobs:
   - job: BuildHasherApp
     displayName: Building Hasher Application
@@ -326,6 +328,25 @@ stages:
         notifyUsers: 
         instructions: 'Please validate the RC staging and resume'
         onTimeout: 'resume'
+  - job: ExportingReleaseCandidateTag
+    displayName: Exporting Release Candidate Tag
+    dependsOn: waitForValidation
+    condition: succeeded()
+    steps:
+      - task: CmdLine@2
+        displayName: Generating TAG as artifact
+        inputs:
+          script: 'echo $TAG > $(Build.ArtifactStagingDirectory)/tag'
+      - task: UniversalPackages@0
+        displayName: Publishing Release Candidate Tag as universal package
+        inputs:
+          command: 'publish'
+          publishDirectory: '$(Build.ArtifactStagingDirectory)/tag'
+          feedsToUsePublish: 'internal'
+          vstsFeedPublish: 'a51d41f5-106e-4352-898b-19f87da5c3ee'
+          vstsFeedPackagePublish: 'release-tag'
+          versionOption: 'minor'
+          packagePublishDescription: 'Accepted release candidate for master'
 
 - stage: ProdcutionTagging
   condition: eq(variables.isMaster, True)
@@ -333,6 +354,16 @@ stages:
   - job: UpdatingDockerTags
     displayName: Updating Docker Images Tags
     steps:
+      - task: UniversalPackages@0
+        inputs:
+          command: 'download'
+          downloadDirectory: '$(System.DefaultWorkingDirectory)'
+          feedsToUse: 'internal'
+          vstsFeed: 'a51d41f5-106e-4352-898b-19f87da5c3ee'
+          vstsFeedPackage: 'release-tag'
       - task: CmdLine@2
         inputs:
-          script: 'echo Hello world'
+          script: |
+            TAG=$(cat $(System.DefaultWorkingDirectory)/release-tag)
+            echo "##vso[task.setvariable variable=TAG]$TAG"
+            
