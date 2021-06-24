@@ -58,7 +58,7 @@ stages:
               tag = tag_version + '-' + develop_commit
             else:
               if search('release', branch_name):
-                tag = tag_version + '-RC'
+                tag = tag_version + '-rc'
           
           with open('$(System.DefaultWorkingDirectory)/app/TAG', 'a') as tag_file:
             tag_file.write(tag)
