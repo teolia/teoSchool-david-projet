@@ -353,7 +353,8 @@ stages:
           feedsToUsePublish: 'internal'
           vstsFeedPublish: '74a2a6cd-34a0-44e5-a714-3236b2f6efb3'
           vstsFeedPackagePublish: 'release-tag'
-          versionOption: 'minor'
+          versionOption: 'custom'
+          versionPublish: '$(TAG)'
           packagePublishDescription: 'Accepted release candidate for master'
 
 - stage: ProdcutionTagging
