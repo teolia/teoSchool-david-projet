@@ -357,7 +357,7 @@ stages:
           versionPublish: '$(TAG)'
           packagePublishDescription: 'Accepted release candidate for master'
 
-- stage: ProdcutionTagging
+- stage: ProductionTagging
   condition: eq(variables.isMaster, True)
   jobs:
   - job: UpdatingDockerTags
@@ -370,6 +370,7 @@ stages:
           feedsToUse: 'internal'
           vstsFeed: '74a2a6cd-34a0-44e5-a714-3236b2f6efb3'
           vstsFeedPackage: 'e34d6976-fff0-4d29-b69e-b7112ada9716'
+          vstsPackageVersion: '*'
       - task: CmdLine@2
         inputs:
           script: |
