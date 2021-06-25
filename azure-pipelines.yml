@@ -343,6 +343,7 @@ stages:
           echo "##vso[task.setvariable variable=TAG]$TAG"
           NAME_TAG=$(cat $(System.DefaultWorkingDirectory)/app/VERSION)
           echo "##vso[task.setvariable variable=NAME_TAG]$NAME_TAG"
+
       - task: CmdLine@2
         displayName: Generating TAG as artifact
         inputs:
@@ -356,10 +357,10 @@ stages:
           vstsFeedPublish: '74a2a6cd-34a0-44e5-a714-3236b2f6efb3'
           vstsFeedPackagePublish: 'release-tag'
           versionOption: 'custom'
+
           versionPublish: '$(NAME_TAG)'
           packagePublishDescription: 'Accepted release candidate for master'
 
-- stage: ProductionTagging
   condition: eq(variables.isMaster, True)
   jobs:
   - job: UpdatingDockerTags
@@ -420,3 +421,4 @@ stages:
           repository: 'dafespinelsa/worker'
           command: 'push'
           tags: '$(NAME_TAG)'
+
