@@ -405,18 +405,18 @@ stages:
           containerRegistry: 'docker-registry'
           repository: 'dafespinelsa/rng'
           command: 'push'
-          tags: '$(FINAL_TAG)'
+          tags: '$(NAME_TAG)'
       - task: Docker@2
         displayName: Pushing webui docker prod image
         inputs:
           containerRegistry: 'docker-registry'
           repository: 'dafespinelsa/webui'
           command: 'push'
-          tags: '$(FINAL_TAG)'
+          tags: '$(NAME_TAG)'
       - task: Docker@2
         displayName: Pushing worker docker prod image
         inputs:
           containerRegistry: 'docker-registry'
           repository: 'dafespinelsa/worker'
           command: 'push'
-          tags: '$(FINAL_TAG)'
+          tags: '$(NAME_TAG)'
