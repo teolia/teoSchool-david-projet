@@ -377,7 +377,7 @@ stages:
         inputs:
           script: |
             ls -alh $(System.DefaultWorkingDirectory)/
-            TAG=$(cat $(System.DefaultWorkingDirectory)/release-tag)
+            TAG=$(cat $(System.DefaultWorkingDirectory)/tag)
             echo "##vso[task.setvariable variable=TAG]$TAG"
             NAME_TAG=$(cat $(System.DefaultWorkingDirectory)/app/VERSION)
             echo "##vso[task.setvariable variable=NAME_TAG]$NAME_TAG"
