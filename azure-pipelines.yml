@@ -32,6 +32,7 @@ stages:
       displayName: Building Docker arguments
       inputs:
         script: |
+          cat /etc/localtime
           echo $(Build.SourceBranch)
           echo $(Build.SourceVersion)
         workingDirectory: '$(System.DefaultWorkingDirectory)'
