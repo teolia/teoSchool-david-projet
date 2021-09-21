@@ -24,7 +24,7 @@ pool:
 
 stages:
 - stage: PreBuild
-  condition: ne(variables.isMaster, True)
+  #condition: ne(variables.isMaster, True)
   jobs:
   - job: ConfiguringVariables
     steps:
